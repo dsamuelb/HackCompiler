@@ -9,9 +9,45 @@ typedef struct {
 }Tokens;
 
 enum BinTypes {
-    M = 001,
-    D = 010,
-    A = 100
+    M = 0b001,
+    D = 0b010,
+    A = 0b100
+};
+
+typedef struct {
+    char* str;
+    int corr;
+}CmdStruct;
+
+CmdStruct strarr[] = {
+    {"0", 0b0101010},
+    {"1", 0b0111111},
+    {"-1", 0b0111010},
+    {"D", 0b0001100},
+    {"A", 0b0110000},
+    {"!D", 0b0001101},
+    {"!A", 0b0110001},
+    {"-D", 0b0001111},
+    {"-A", 0b0110011},
+    {"D+1", 0b0011111},
+    {"A+1", 0b0110111},
+    {"D-1", 0b0001110},
+    {"A-1", 0b0110010},
+    {"D+A", 0b0000010},
+    {"D-A", 0b0010011},
+    {"A-D", 0b0000111},
+    {"D&A", 0b0000000},
+    {"D|A", 0b0010101},
+    {"M", 0b1110000},
+    {"!M", 0b1110001},
+    {"-M", 0b1110011},
+    {"M+1", 0b1110111},
+    {"M-1", 0b1110010},
+    {"D+M", 0b1000010},
+    {"D-M", 0b1010011},
+    {"M-D", 0b1000111},
+    {"D&M", 0b1000000},
+    {"D|M", 0b1010101}
 };
 
 Tokens cmds[10000];
@@ -19,6 +55,7 @@ Tokens cmds[10000];
 int puthash(char* s, int strc, int linec);
 void printhash(int linec);
 void assemble(int linec);
+void printbin(FILE* file, int num);
 
 int main(void)
 {
@@ -47,6 +84,7 @@ int main(void)
             strc++;
         } else {
             *(str + strc) = '\0';
+            strc++;
             linec = puthash(str, strc, linec);
             linec++;
             strc = 0;
@@ -96,7 +134,7 @@ void assemble(int linec)
     }
     for (int cnt = 0; cnt < linec; cnt++)
     {
-    if (cmds[0].cmd[0] == '@')
+    if (cmds[cnt].cmd[0] == '@')
     {
         int bin = 0b0000000000000000;
         int i = 0;
@@ -112,19 +150,71 @@ void assemble(int linec)
             num = num * 10 + ((cmds[cnt].cmd[j] - '0'));
         }
 
-        for (int j = 14; j >= 0; j--)
-        {
-            bin = bin << 1;
-            bin = bin | ((num >> j) & 1);
-        }
+        num = num | 0b0000000000000000;
 
-        bin = bin | 0b1000000000000000;
-
-        fprintf(fpr, "%b\n", bin);
+        printbin(fpr, num);
 
     } else
     {
 
+        int num = 0;
+
+        int dest = 0;
+        int comp = 0;
+        int jmp = 0;
+        int i = -1;
+        int isjmp = 0;
+        int j;
+        for (j = 0; j < strlen(cmds[cnt].cmd); j++)
+        {
+            if (cmds[cnt].cmd[j] == ';')
+            {
+                isjmp = 1;
+                break; 
+            }
+        }
+        if (!isjmp)
+        {
+        while (cmds[cnt].cmd[i++] != '=')
+        {
+            if (cmds[cnt].cmd[i] == 'M')
+            {
+                dest = dest | M;
+            } else if (cmds[cnt].cmd[i] == 'A')
+            {
+                dest = dest | A;
+            } else if (cmds[cnt].cmd[i] == 'D')
+            {
+                dest = dest | D;
+            }
+        }
+
+        char *s = malloc(sizeof(char) * (strlen(cmds[cnt].cmd)));
+
+        for (i = i, j = 0; i < strlen(cmds[cnt].cmd); i++, j++)
+        {
+            s[j] = cmds[cnt].cmd[i];
+        }
+
+        s[i] = '\0';
+
+        int length = sizeof(strarr) / sizeof(CmdStruct);
+
+        for (int c = 0; c < length; c++)
+        {
+            if (!strcmp(s, strarr[c].str))
+            {
+                comp = strarr[c].corr;
+                break;
+            }
+        }
+
+        num = 0b1110000000000000;
+
+        num = num | ((dest << 3) | (comp << 6));
+
+        printbin(fpr, num);
+        }   
     }
     }
     fclose(fpr);
@@ -134,4 +224,14 @@ void printhash(int linec)
 {
     for (int i = 0; i < linec; i++)
         printf("%s, %d\n", cmds[i].cmd, cmds[i].line);
+}
+
+void printbin(FILE* file, int num)
+{
+    for (int i = 15; i >= 0; i--)
+    {
+        char conv = (((num >> i) & 1) + '0');
+        fputc(conv, file);
+    }
+    fputc('\n', file);
 }
